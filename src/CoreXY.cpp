@@ -101,6 +101,14 @@ void CoreXY::moveBy(long dx, long dy) {
     moveTo(_x + dx, _y + dy);
 }
 
+void CoreXY::moveToCm(float xCm, float yCm) {
+    moveTo((long)(xCm * STEPS_PER_CM), (long)(yCm * STEPS_PER_CM));
+}
+
+void CoreXY::moveByCm(float dxCm, float dyCm) {
+    moveToCm((_x / STEPS_PER_CM) + dxCm, (_y / STEPS_PER_CM) + dyCm);
+}
+
 void CoreXY::disable() {
     _motorA.disable();
     _motorB.disable();

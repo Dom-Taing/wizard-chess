@@ -14,24 +14,43 @@ void setup() {
     xy.begin();
     xy.setSpeed(1500);
     xy.setHome();
-    xy.setMaxBounds(16450, 16450);
+    xy.setMaxBounds(16400, 16400);
 
-    Serial.println("[CoreXY] running square demo");
-    xy.moveTo(16450, 0);
-    Serial.printf("  at (%ld, %ld)\n", xy.getX(), xy.getY());
-    xy.moveTo(16450, 16450);
-    Serial.printf("  at (%ld, %ld)\n", xy.getX(), xy.getY());
-    xy.moveTo(0, 16450);
-    Serial.printf("  at (%ld, %ld)\n", xy.getX(), xy.getY());
-    xy.moveTo(0, 0);
-    Serial.printf("  at (%ld, %ld)\n", xy.getX(), xy.getY());
-
-    Serial.println("[CoreXY] bounds test: moveTo(20000, 0) should be refused");
-    xy.moveTo(20000, 0);
-    Serial.printf("  after refused move, at (%ld, %ld)\n", xy.getX(), xy.getY());
-
-    Serial.println("[CoreXY] demo complete");
-    xy.disable();
+    Serial.println("[CoreXY] Ready. Enter a square (e.g. A1, H8)");
 }
 
-void loop() {}
+// A1 = (3.8, 5.0); each letter = +2.0 cm X, each number = +5.0 cm Y
+static constexpr float SQUARE_ORIGIN_X = 3.8f;
+static constexpr float SQUARE_ORIGIN_Y = 5.5f;
+static constexpr float SQUARE_STEP_X   = 5.0f;
+static constexpr float SQUARE_STEP_Y   = 5.0f;
+
+void loop() {
+    if (!Serial.available()) return;
+
+    String input = Serial.readStringUntil('\n');
+    input.trim();
+    input.toUpperCase();
+
+    if (input.length() < 2) {
+        Serial.println("  Invalid. Use a square like A1 or H8");
+        return;
+    }
+
+    char col = input.charAt(0);
+    int  row = input.substring(1).toInt();
+
+    if (col < 'A' || col > 'H' || row < 1 || row > 8) {
+        Serial.println("  Out of range. Columns A-H, rows 1-8");
+        return;
+    }
+
+    float x = SQUARE_ORIGIN_X + (col - 'A') * SQUARE_STEP_X;
+    float y = SQUARE_ORIGIN_Y + (row - 1)   * SQUARE_STEP_Y;
+
+    Serial.printf("  %c%d -> (%.2f cm, %.2f cm)\n", col, row, x, y);
+    xy.moveToCm(x, y);
+    Serial.printf("  arrived at (%.2f cm, %.2f cm)\n",
+                  xy.getX() / CoreXY::STEPS_PER_CM,
+                  xy.getY() / CoreXY::STEPS_PER_CM);
+}

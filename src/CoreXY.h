@@ -19,6 +19,11 @@ public:
     void moveTo(long x, long y);               // absolute, coordinated straight line (blocking)
     void moveBy(long dx, long dy);             // relative (blocking)
 
+    void moveToCm(float xCm, float yCm);      // absolute move in centimeters
+    void moveByCm(float dxCm, float dyCm);    // relative move in centimeters
+
+    static constexpr float STEPS_PER_CM = 400.0f;
+
     long getX() const { return _x; }
     long getY() const { return _y; }
 
