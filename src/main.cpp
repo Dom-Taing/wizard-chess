@@ -1,10 +1,12 @@
 #include <Arduino.h>
 #include "StepperMotor.h"
 #include "CoreXY.h"
+#include "Electromagnet.h"
 
 StepperMotor motorA(D4, D5, D6);
 StepperMotor motorB(D9, D8, D7);
 CoreXY xy(motorA, motorB);
+Electromagnet magnet(D2);
 
 void setup() {
     Serial.begin(115200);
@@ -15,8 +17,9 @@ void setup() {
     xy.setSpeed(1500);
     xy.setHome();
     xy.setMaxBounds(16400, 16400);
+    magnet.begin();
 
-    Serial.println("[CoreXY] Ready. Enter a square (e.g. A1, H8)");
+    Serial.println("[CoreXY] Ready. Enter a square (e.g. A1, H8), ON, or OFF");
 }
 
 // A1 = (3.8, 5.0); each letter = +2.0 cm X, each number = +5.0 cm Y
@@ -32,8 +35,19 @@ void loop() {
     input.trim();
     input.toUpperCase();
 
+    if (input == "ON") {
+        magnet.on();
+        Serial.println("  Electromagnet ON");
+        return;
+    }
+    if (input == "OFF") {
+        magnet.off();
+        Serial.println("  Electromagnet OFF");
+        return;
+    }
+
     if (input.length() < 2) {
-        Serial.println("  Invalid. Use a square like A1 or H8");
+        Serial.println("  Invalid. Use a square like A1 or H8, or ON/OFF");
         return;
     }
 
