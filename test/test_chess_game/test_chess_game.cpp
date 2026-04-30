@@ -238,6 +238,51 @@ void test_king_cannot_move_two_squares() {
     TEST_ASSERT_FALSE(g.isLegalMove({'E', 4}, {'E', 6}));
 }
 
+// ── Turn validation ────────────────────────────────────────────────
+void test_black_cannot_move_on_whites_turn() {
+    ChessGame g;
+    TEST_ASSERT_FALSE(g.isLegalMove({'E', 7}, {'E', 6}));  // black pawn, white's turn
+}
+
+// ── applyMove ──────────────────────────────────────────────────
+void test_apply_move_updates_board() {
+    ChessGame g;
+    g.applyMove({'E', 2}, {'E', 4});
+    TEST_ASSERT_TRUE(g.isEmpty({'E', 2}));
+    Piece p = g.getPieceAt({'E', 4});
+    TEST_ASSERT_EQUAL(PAWN,  p.type);
+    TEST_ASSERT_EQUAL(WHITE, p.color);
+}
+
+void test_apply_move_alternates_turn() {
+    ChessGame g;
+    TEST_ASSERT_EQUAL(WHITE, g.getTurn());
+    g.applyMove({'E', 2}, {'E', 4});
+    TEST_ASSERT_EQUAL(BLACK, g.getTurn());
+}
+
+void test_apply_move_capture_adds_to_captured() {
+    Piece board[8][8] = {};
+    board[3][4] = {PAWN, WHITE};  // E4
+    board[4][3] = {PAWN, BLACK};  // D5 — enemy
+    ChessGame g(board);
+    g.applyMove({'E', 4}, {'D', 5});
+    TEST_ASSERT_EQUAL(1u, g.getCaptured().size());
+    TEST_ASSERT_EQUAL(BLACK, g.getCaptured()[0].color);
+}
+
+void test_apply_move_illegal_returns_false() {
+    ChessGame g;
+    TEST_ASSERT_FALSE(g.applyMove({'E', 2}, {'E', 5}));  // too far for pawn
+}
+
+// ── Optional bonus test — black pawn moves after turn switch ────
+void test_black_pawn_forward_after_turn_switch() {
+    ChessGame g;
+    g.applyMove({'E', 2}, {'E', 4});  // white moves, now black's turn
+    TEST_ASSERT_TRUE(g.isLegalMove({'E', 7}, {'E', 6}));  // black pawn forward 1
+}
+
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_standard_white_pawn_row2);
@@ -271,5 +316,11 @@ int main() {
     RUN_TEST(test_knight_invalid_move);
     RUN_TEST(test_king_one_step_any_direction);
     RUN_TEST(test_king_cannot_move_two_squares);
+    RUN_TEST(test_black_cannot_move_on_whites_turn);
+    RUN_TEST(test_apply_move_updates_board);
+    RUN_TEST(test_apply_move_alternates_turn);
+    RUN_TEST(test_apply_move_capture_adds_to_captured);
+    RUN_TEST(test_apply_move_illegal_returns_false);
+    RUN_TEST(test_black_pawn_forward_after_turn_switch);
     return UNITY_END();
 }

@@ -133,4 +133,11 @@ bool ChessGame::isKingMove(Position from, Position to) const {
     return dc <= 1 && dr <= 1;
 }
 
-bool ChessGame::applyMove(Position, Position)         { return false; }
+bool ChessGame::applyMove(Position from, Position to) {
+    if (!isLegalMove(from, to)) return false;
+    if (!isEmpty(to)) _captured.push_back(at(to));
+    at(to)   = at(from);
+    at(from) = {};
+    _turn    = (_turn == WHITE) ? BLACK : WHITE;
+    return true;
+}
