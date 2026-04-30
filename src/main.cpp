@@ -17,7 +17,7 @@ static constexpr float SQUARE_STEP_X   = 5.0f;
 static constexpr float SQUARE_STEP_Y   = 5.0f;
 
 ChessGame   game;
-MovePlanner planner(game, {SQUARE_ORIGIN_X, SQUARE_ORIGIN_Y, SQUARE_STEP_X, SQUARE_STEP_Y});
+MovePlanner planner(game, {SQUARE_ORIGIN_X, SQUARE_ORIGIN_Y, SQUARE_STEP_X, SQUARE_STEP_Y});  // game must precede planner (same-TU init order)
 
 void setup() {
     Serial.begin(115200);
@@ -78,7 +78,7 @@ void loop() {
 // if (planner.startMove({'E', 2}, {'E', 4})) {
 //     while (!planner.isMoveDone()) {
 //         Step s = planner.peekNextStep();
-//         planner.nextStep();
+//         bool more = planner.nextStep();  // returns false when last step was just consumed
 //         if      (s.type == MOVE_TO)     xy.moveToCm(s.x, s.y);
 //         else if (s.type == MAGNET_ON)   magnet.on();
 //         else if (s.type == MAGNET_OFF)  magnet.off();
