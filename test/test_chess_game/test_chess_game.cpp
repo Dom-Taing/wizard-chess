@@ -162,6 +162,20 @@ void test_bishop_cannot_move_straight() {
     TEST_ASSERT_FALSE(g.isLegalMove({'C', 1}, {'C', 4}));
 }
 
+void test_rook_vertical_clear() {
+    Piece board[8][8] = {};
+    board[0][4] = {ROOK, WHITE};   // E1
+    ChessGame g(board);
+    TEST_ASSERT_TRUE(g.isLegalMove({'E', 1}, {'E', 5}));
+}
+
+void test_bishop_down_left_diagonal() {
+    Piece board[8][8] = {};
+    board[4][4] = {BISHOP, WHITE};  // E5
+    ChessGame g(board);
+    TEST_ASSERT_TRUE(g.isLegalMove({'E', 5}, {'B', 2}));
+}
+
 // ── Queen ──────────────────────────────────────────────────────
 void test_queen_straight_clear() {
     Piece board[8][8] = {};
@@ -175,6 +189,14 @@ void test_queen_diagonal_clear() {
     board[0][3] = {QUEEN, WHITE};   // D1
     ChessGame g(board);
     TEST_ASSERT_TRUE(g.isLegalMove({'D', 1}, {'G', 4}));
+}
+
+void test_queen_blocked_on_diagonal() {
+    Piece board[8][8] = {};
+    board[0][3] = {QUEEN, WHITE};  // D1
+    board[1][4] = {PAWN,  WHITE};  // E2 — blocker
+    ChessGame g(board);
+    TEST_ASSERT_FALSE(g.isLegalMove({'D', 1}, {'G', 4}));
 }
 
 int main() {
@@ -197,10 +219,13 @@ int main() {
     RUN_TEST(test_rook_horizontal_clear);
     RUN_TEST(test_rook_blocked_by_friendly);
     RUN_TEST(test_rook_cannot_move_diagonal);
+    RUN_TEST(test_rook_vertical_clear);
     RUN_TEST(test_bishop_diagonal_clear);
     RUN_TEST(test_bishop_blocked);
     RUN_TEST(test_bishop_cannot_move_straight);
+    RUN_TEST(test_bishop_down_left_diagonal);
     RUN_TEST(test_queen_straight_clear);
     RUN_TEST(test_queen_diagonal_clear);
+    RUN_TEST(test_queen_blocked_on_diagonal);
     return UNITY_END();
 }

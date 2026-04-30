@@ -84,6 +84,8 @@ bool ChessGame::isPawnMove(Position from, Position to) const {
     return false;
 }
 
+// Precondition: (from, to) must be same rank, same file, or same diagonal.
+// Callers (isRookMove, isBishopMove) enforce this before calling here.
 bool ChessGame::isPathClear(Position from, Position to) const {
     int dc = ci(to) - ci(from);
     int dr = ri(to) - ri(from);
