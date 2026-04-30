@@ -64,25 +64,31 @@ void test_simple_move_sequence_e2e4() {
     MovePlanner mp(g, cfg);
     mp.startMove({'E', 2}, {'E', 4});
 
-    // Step 1: MAGNET_ON at E2
+    float expX, expY;
+    float srcX = 3.8f + 4*5.0f;  // E column
+    float srcY = 5.5f + 1*5.0f;  // rank 2
+    float dstX = 3.8f + 4*5.0f;  // E column
+    float dstY = 5.5f + 3*5.0f;  // rank 4
+
+    // Step 1: MAGNET_ON at E2 — x/y must be source physical coords
     Step s = mp.peekNextStep();
     TEST_ASSERT_EQUAL(MAGNET_ON, s.type);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, srcX, s.x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, srcY, s.y);
     mp.nextStep();
 
     // Step 2: MOVE_TO E4 (vertical only — dc==0, same column)
     s = mp.peekNextStep();
     TEST_ASSERT_EQUAL(MOVE_TO, s.type);
-    float expX, expY;
-    // destination physical coords
-    expX = 3.8f + 4*5.0f;  // E column
-    expY = 5.5f + 3*5.0f;  // rank 4
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, expX, s.x);
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, expY, s.y);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, dstX, s.x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, dstY, s.y);
     mp.nextStep();
 
-    // Step 3: MAGNET_OFF at E4
+    // Step 3: MAGNET_OFF at E4 — x/y must be destination physical coords
     s = mp.peekNextStep();
     TEST_ASSERT_EQUAL(MAGNET_OFF, s.type);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, dstX, s.x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, dstY, s.y);
     mp.nextStep();
 
     TEST_ASSERT_TRUE(mp.isMoveDone());
