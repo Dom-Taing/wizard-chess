@@ -1,6 +1,7 @@
 #include "MovePlanner.h"
 #include <vector>
 #include <algorithm>
+#include <cassert>
 
 MovePlanner::MovePlanner(ChessGame& game, const PhysicalConfig& config)
     : _game(game), _cfg(config) {
@@ -86,7 +87,7 @@ bool MovePlanner::startMove(Position from, Position to) {
         auto [bx, by] = _borderSlots[borderIdx];
         _steps.push({MAGNET_ON,  to,       0.0f, 0.0f});
         _steps.push({MOVE_TO,    to,       bx,   by});
-        _steps.push({MAGNET_OFF, {'Z', 0}, 0.0f, 0.0f});
+        _steps.push({MAGNET_OFF, kNoSquare, 0.0f, 0.0f});
     }
 
     // Collect blockers with their park squares
@@ -140,15 +141,17 @@ bool MovePlanner::startMove(Position from, Position to) {
     // Restore sub-sequences (reverse order)
     for (int i = (int)displacements.size() - 1; i >= 0; i--) {
         auto& [blocker, park] = displacements[i];
-        float bx, by;
-        physicalCoords(blocker, bx, by);
+        float ox, oy;
+        physicalCoords(blocker, ox, oy);
         _steps.push({MAGNET_ON,  park,    0.0f, 0.0f});
-        _steps.push({MOVE_TO,    blocker, bx,   by});
+        _steps.push({MOVE_TO,    blocker, ox,   oy});
         _steps.push({MAGNET_OFF, blocker, 0.0f, 0.0f});
     }
 
     bool ok = _game.applyMove(from, to);
-    (void)ok;  // guaranteed by isLegalMove check above
+    assert(ok);  // guaranteed by isLegalMove check above; fails only on internal inconsistency
+    // Safe to mark here: the !_steps.empty() guard prevents a concurrent startMove from
+    // re-entering and observing a slot that is reserved but not yet marked occupied.
     if (isCapture) _borderOccupied[borderIdx] = true;
     return true;
 }

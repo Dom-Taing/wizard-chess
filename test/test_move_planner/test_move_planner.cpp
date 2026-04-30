@@ -253,6 +253,7 @@ void test_second_capture_uses_next_border_slot() {
     while (!mp.isMoveDone()) mp.nextStep();
 
     // Second capture: white rook A4 x A8 → border slot 1 (col B above rank 8)
+    TEST_ASSERT_FALSE(g.isEmpty({'A', 8}));  // sanity: target still holds black pawn
     TEST_ASSERT_TRUE(mp.startMove({'A', 4}, {'A', 8}));
     mp.nextStep();  // consume MAGNET_ON at A8
     Step s = mp.peekNextStep();

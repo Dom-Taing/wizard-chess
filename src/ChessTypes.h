@@ -27,8 +27,11 @@ enum StepType : uint8_t { MOVE_TO, MAGNET_ON, MAGNET_OFF };
 
 struct Step {
     StepType type   = MOVE_TO;
-    Position target = {};    // chess square (meaningful for on-board MOVE_TO)
+    Position target = {};    // chess square; use kNoSquare for off-board MAGNET_OFF
     float    x      = 0.0f; // physical X in cm (authoritative for all MOVE_TO)
     float    y      = 0.0f; // physical Y in cm (authoritative for all MOVE_TO)
     // x and y are 0 for MAGNET_ON / MAGNET_OFF steps
 };
+
+// Sentinel for Step::target when a piece has left the board (e.g. captured piece MAGNET_OFF)
+static constexpr Position kNoSquare = {'Z', 0};
