@@ -19,14 +19,15 @@ bool MovePlanner::findParkSquare(Position blocker, Position mainFrom, Position m
         if (candidate.col < 'A' || candidate.col > 'H') continue;
         if (candidate.row < 1  || candidate.row > 8)   continue;
         if (!_game.isEmpty(candidate))                  continue;
-        // Skip squares on the main move path (rough check: same col as 'to' or same row as 'from' between endpoints)
         bool onHorizLeg = (candidate.row == mainFrom.row &&
                            candidate.col > std::min(mainFrom.col, mainTo.col) &&
                            candidate.col < std::max(mainFrom.col, mainTo.col));
         bool onVertLeg  = (candidate.col == mainTo.col &&
                            candidate.row > std::min(mainFrom.row, mainTo.row) &&
                            candidate.row < std::max(mainFrom.row, mainTo.row));
-        if (onHorizLeg || onVertLeg) continue;
+        // Also exclude the L-corner pivot square (intersection of both legs)
+        bool isPivot = (candidate.col == mainTo.col && candidate.row == mainFrom.row);
+        if (onHorizLeg || onVertLeg || isPivot) continue;
         park = candidate;
         return true;
     }
@@ -51,13 +52,15 @@ bool MovePlanner::startMove(Position from, Position to) {
 
     // Horizontal leg blockers
     if (dc != 0) {
-        for (char c = from.col + stepC; c != to.col; c += stepC) {
-            Position sq = {c, from.row};
+        for (int c = from.col + stepC; c != to.col; c += stepC) {
+            Position sq = {(char)c, from.row};
             if (!_game.isEmpty(sq)) {
                 Position park;
-                if (findParkSquare(sq, from, to, park)) {
-                    displacements.push_back({sq, park});
+                if (!findParkSquare(sq, from, to, park)) {
+                    _steps = std::queue<Step>();
+                    return false;  // no room to park blocker — cannot plan move
                 }
+                displacements.push_back({sq, park});
             }
         }
     }
@@ -68,17 +71,18 @@ bool MovePlanner::startMove(Position from, Position to) {
             Position sq = {to.col, r};
             if (!_game.isEmpty(sq)) {
                 Position park;
-                if (findParkSquare(sq, from, to, park)) {
-                    displacements.push_back({sq, park});
+                if (!findParkSquare(sq, from, to, park)) {
+                    _steps = std::queue<Step>();
+                    return false;  // no room to park blocker — cannot plan move
                 }
+                displacements.push_back({sq, park});
             }
         }
     }
 
     // Push park sub-sequences
     for (auto& [blocker, park] : displacements) {
-        float bx, by, px, py;
-        physicalCoords(blocker, bx, by);
+        float px, py;
         physicalCoords(park, px, py);
         _steps.push({MAGNET_ON,  blocker, 0.0f, 0.0f});
         _steps.push({MOVE_TO,    park,    px,   py});
@@ -94,9 +98,8 @@ bool MovePlanner::startMove(Position from, Position to) {
     // Restore sub-sequences (reverse order)
     for (int i = (int)displacements.size() - 1; i >= 0; i--) {
         auto& [blocker, park] = displacements[i];
-        float bx, by, px, py;
+        float bx, by;
         physicalCoords(blocker, bx, by);
-        physicalCoords(park, px, py);
         _steps.push({MAGNET_ON,  park,    0.0f, 0.0f});
         _steps.push({MOVE_TO,    blocker, bx,   by});
         _steps.push({MAGNET_OFF, blocker, 0.0f, 0.0f});
