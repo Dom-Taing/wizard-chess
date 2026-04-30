@@ -23,7 +23,7 @@ struct PhysicalConfig {
     float stepY   = 5.0f;   // cm per rank
 };
 
-enum  StepType { MOVE_TO, MAGNET_ON, MAGNET_OFF };
+enum StepType : uint8_t { MOVE_TO, MAGNET_ON, MAGNET_OFF };
 
 struct Step {
     StepType type   = MOVE_TO;
