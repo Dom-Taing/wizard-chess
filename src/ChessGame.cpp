@@ -1,9 +1,12 @@
 #include "ChessGame.h"
 #include <cstring>
+#include <type_traits>
+
+static_assert(std::is_trivially_copyable<Piece>::value, "Piece must be trivially copyable");
 
 ChessGame::ChessGame() { initStandard(); }
 
-ChessGame::ChessGame(const Piece board[8][8]) {
+ChessGame::ChessGame(const Piece board[8][8]) : _turn(WHITE) {
     memcpy(_board, board, sizeof(_board));
 }
 
@@ -27,9 +30,16 @@ void ChessGame::initStandard() {
     }
 }
 
-PieceColor ChessGame::getTurn()              const { return _turn; }
-Piece      ChessGame::getPieceAt(Position p) const { return at(p); }
-bool       ChessGame::isEmpty(Position p)    const { return at(p).type == NONE; }
+PieceColor ChessGame::getTurn() const { return _turn; }
+
+Piece ChessGame::getPieceAt(Position p) const {
+    if (ci(p) < 0 || ci(p) > 7 || ri(p) < 0 || ri(p) > 7) return {NONE, NO_COLOR};
+    return at(p);
+}
+bool ChessGame::isEmpty(Position p) const {
+    if (ci(p) < 0 || ci(p) > 7 || ri(p) < 0 || ri(p) > 7) return true;
+    return at(p).type == NONE;
+}
 const std::vector<Piece>& ChessGame::getCaptured() const { return _captured; }
 
 // Stubs — will be filled in Tasks 3–6
