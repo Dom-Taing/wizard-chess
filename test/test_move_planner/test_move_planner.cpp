@@ -1,9 +1,10 @@
 #include <unity.h>
 #include "../../src/MovePlanner.h"
-#include "../../src/ChessGame.h"
 
 void setUp()    {}
 void tearDown() {}
+
+// ── Coordinate mapping ─────────────────────────────────────────
 
 void test_coord_a1() {
     ChessGame g;
@@ -34,6 +35,8 @@ void test_coord_e4() {
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 3.8f + 4*5.0f, x);  // 23.8
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 5.5f + 3*5.0f, y);  // 20.5
 }
+
+// ── Step queue state ───────────────────────────────────────────
 
 void test_is_move_done_initially() {
     ChessGame g;

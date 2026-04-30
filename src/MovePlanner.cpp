@@ -1,6 +1,6 @@
 #include "MovePlanner.h"
 
-MovePlanner::MovePlanner(ChessGame& game, PhysicalConfig config)
+MovePlanner::MovePlanner(ChessGame& game, const PhysicalConfig& config)
     : _game(game), _cfg(config) {}
 
 void MovePlanner::physicalCoords(Position pos, float& x, float& y) const {
@@ -10,6 +10,7 @@ void MovePlanner::physicalCoords(Position pos, float& x, float& y) const {
 
 bool MovePlanner::startMove(Position from, Position to) {
     if (!_game.isLegalMove(from, to)) return false;
+    _steps = std::queue<Step>();  // flush any leftover steps from a prior move
     // Full path planning implemented in Tasks 8–10
     return true;
 }

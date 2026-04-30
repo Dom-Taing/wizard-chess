@@ -5,9 +5,11 @@
 
 class MovePlanner {
 public:
-    MovePlanner(ChessGame& game, PhysicalConfig config);
+    MovePlanner(ChessGame& game, const PhysicalConfig& config);
 
     bool startMove(Position from, Position to);
+    // Call peekNextStep() first to read the current step, then nextStep() to advance.
+    // Returns true if more steps remain after advancing.
     bool nextStep();
     bool isMoveDone() const;
     Step peekNextStep() const;
