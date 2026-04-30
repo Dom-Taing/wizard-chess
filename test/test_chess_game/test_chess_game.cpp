@@ -199,6 +199,45 @@ void test_queen_blocked_on_diagonal() {
     TEST_ASSERT_FALSE(g.isLegalMove({'D', 1}, {'G', 4}));
 }
 
+// ── Knight ─────────────────────────────────────────────────────
+void test_knight_l_shape() {
+    Piece board[8][8] = {};
+    board[0][1] = {KNIGHT, WHITE};   // B1
+    ChessGame g(board);
+    TEST_ASSERT_TRUE(g.isLegalMove({'B', 1}, {'C', 3}));
+    TEST_ASSERT_TRUE(g.isLegalMove({'B', 1}, {'A', 3}));
+    TEST_ASSERT_TRUE(g.isLegalMove({'B', 1}, {'D', 2}));
+}
+
+void test_knight_jumps_over_pieces() {
+    ChessGame g;  // B1 knight surrounded by pawns — can still jump
+    TEST_ASSERT_TRUE(g.isLegalMove({'B', 1}, {'C', 3}));
+}
+
+void test_knight_invalid_move() {
+    Piece board[8][8] = {};
+    board[0][1] = {KNIGHT, WHITE};   // B1
+    ChessGame g(board);
+    TEST_ASSERT_FALSE(g.isLegalMove({'B', 1}, {'B', 3}));
+}
+
+// ── King ───────────────────────────────────────────────────────
+void test_king_one_step_any_direction() {
+    Piece board[8][8] = {};
+    board[3][4] = {KING, WHITE};   // E4
+    ChessGame g(board);
+    TEST_ASSERT_TRUE(g.isLegalMove({'E', 4}, {'E', 5}));
+    TEST_ASSERT_TRUE(g.isLegalMove({'E', 4}, {'D', 4}));
+    TEST_ASSERT_TRUE(g.isLegalMove({'E', 4}, {'F', 3}));
+}
+
+void test_king_cannot_move_two_squares() {
+    Piece board[8][8] = {};
+    board[3][4] = {KING, WHITE};   // E4
+    ChessGame g(board);
+    TEST_ASSERT_FALSE(g.isLegalMove({'E', 4}, {'E', 6}));
+}
+
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_standard_white_pawn_row2);
@@ -227,5 +266,10 @@ int main() {
     RUN_TEST(test_queen_straight_clear);
     RUN_TEST(test_queen_diagonal_clear);
     RUN_TEST(test_queen_blocked_on_diagonal);
+    RUN_TEST(test_knight_l_shape);
+    RUN_TEST(test_knight_jumps_over_pieces);
+    RUN_TEST(test_knight_invalid_move);
+    RUN_TEST(test_king_one_step_any_direction);
+    RUN_TEST(test_king_cannot_move_two_squares);
     return UNITY_END();
 }

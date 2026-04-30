@@ -121,6 +121,16 @@ bool ChessGame::isQueenMove(Position from, Position to) const {
     return isRookMove(from, to) || isBishopMove(from, to);
 }
 
+bool ChessGame::isKnightMove(Position from, Position to) const {
+    int dc = ci(to) - ci(from);  if (dc < 0) dc = -dc;
+    int dr = ri(to) - ri(from);  if (dr < 0) dr = -dr;
+    return (dc == 1 && dr == 2) || (dc == 2 && dr == 1);
+}
+
+bool ChessGame::isKingMove(Position from, Position to) const {
+    int dc = ci(to) - ci(from);  if (dc < 0) dc = -dc;
+    int dr = ri(to) - ri(from);  if (dr < 0) dr = -dr;
+    return dc <= 1 && dr <= 1;
+}
+
 bool ChessGame::applyMove(Position, Position)         { return false; }
-bool ChessGame::isKnightMove(Position, Position) const { return false; }
-bool ChessGame::isKingMove  (Position, Position) const { return false; }
