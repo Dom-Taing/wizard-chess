@@ -137,7 +137,7 @@ bool ChessGame::applyMove(Position from, Position to) {
     if (!isLegalMove(from, to)) return false;
     if (!isEmpty(to)) _captured.push_back(at(to));
     at(to)   = at(from);
-    at(from) = {};
+    at(from) = {NONE, NO_COLOR};
     _turn    = (_turn == WHITE) ? BLACK : WHITE;
     return true;
 }
