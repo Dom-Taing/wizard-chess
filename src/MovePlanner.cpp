@@ -1,4 +1,6 @@
 #include "MovePlanner.h"
+#include <vector>
+#include <algorithm>
 
 MovePlanner::MovePlanner(ChessGame& game, const PhysicalConfig& config)
     : _game(game), _cfg(config) {}
@@ -8,9 +10,32 @@ void MovePlanner::physicalCoords(Position pos, float& x, float& y) const {
     y = _cfg.originY + (pos.row - 1)  * _cfg.stepY;
 }
 
+bool MovePlanner::findParkSquare(Position blocker, Position mainFrom, Position mainTo, Position& park) const {
+    // Candidate directions: up, down, left, right
+    int drs[] = {1, -1, 0, 0};
+    int dcs[] = {0, 0, -1, 1};
+    for (int i = 0; i < 4; i++) {
+        Position candidate = {(char)(blocker.col + dcs[i]), blocker.row + drs[i]};
+        if (candidate.col < 'A' || candidate.col > 'H') continue;
+        if (candidate.row < 1  || candidate.row > 8)   continue;
+        if (!_game.isEmpty(candidate))                  continue;
+        // Skip squares on the main move path (rough check: same col as 'to' or same row as 'from' between endpoints)
+        bool onHorizLeg = (candidate.row == mainFrom.row &&
+                           candidate.col > std::min(mainFrom.col, mainTo.col) &&
+                           candidate.col < std::max(mainFrom.col, mainTo.col));
+        bool onVertLeg  = (candidate.col == mainTo.col &&
+                           candidate.row > std::min(mainFrom.row, mainTo.row) &&
+                           candidate.row < std::max(mainFrom.row, mainTo.row));
+        if (onHorizLeg || onVertLeg) continue;
+        park = candidate;
+        return true;
+    }
+    return false;
+}
+
 bool MovePlanner::startMove(Position from, Position to) {
     if (!_game.isLegalMove(from, to)) return false;
-    if (!_steps.empty()) return false;  // reject if a move is already in progress
+    if (!_steps.empty()) return false;
 
     float fx, fy, tx, ty;
     physicalCoords(from, fx, fy);
@@ -18,17 +43,64 @@ bool MovePlanner::startMove(Position from, Position to) {
 
     int dc = (int)(to.col - from.col);
     int dr = (int)(to.row - from.row);
+    int stepC = (dc == 0) ? 0 : (dc > 0 ? 1 : -1);
+    int stepR = (dr == 0) ? 0 : (dr > 0 ? 1 : -1);
 
-    // x/y are 0 for MAGNET steps per Step struct contract; position is in target field
-    _steps.push({MAGNET_ON,  from, 0.0f, 0.0f});
+    // Collect blockers with their park squares
+    std::vector<std::pair<Position, Position>> displacements;
 
-    // Horizontal leg (if needed)
+    // Horizontal leg blockers
+    if (dc != 0) {
+        for (char c = from.col + stepC; c != to.col; c += stepC) {
+            Position sq = {c, from.row};
+            if (!_game.isEmpty(sq)) {
+                Position park;
+                if (findParkSquare(sq, from, to, park)) {
+                    displacements.push_back({sq, park});
+                }
+            }
+        }
+    }
+
+    // Vertical leg blockers
+    if (dr != 0) {
+        for (int r = from.row + stepR; r != to.row; r += stepR) {
+            Position sq = {to.col, r};
+            if (!_game.isEmpty(sq)) {
+                Position park;
+                if (findParkSquare(sq, from, to, park)) {
+                    displacements.push_back({sq, park});
+                }
+            }
+        }
+    }
+
+    // Push park sub-sequences
+    for (auto& [blocker, park] : displacements) {
+        float bx, by, px, py;
+        physicalCoords(blocker, bx, by);
+        physicalCoords(park, px, py);
+        _steps.push({MAGNET_ON,  blocker, 0.0f, 0.0f});
+        _steps.push({MOVE_TO,    park,    px,   py});
+        _steps.push({MAGNET_OFF, park,    0.0f, 0.0f});
+    }
+
+    // Main move
+    _steps.push({MAGNET_ON, from, 0.0f, 0.0f});
     if (dc != 0) _steps.push({MOVE_TO, from, tx, fy});
-
-    // Vertical leg (if needed)
-    if (dr != 0) _steps.push({MOVE_TO, to, tx, ty});
-
+    if (dr != 0) _steps.push({MOVE_TO, to,   tx, ty});
     _steps.push({MAGNET_OFF, to, 0.0f, 0.0f});
+
+    // Restore sub-sequences (reverse order)
+    for (int i = (int)displacements.size() - 1; i >= 0; i--) {
+        auto& [blocker, park] = displacements[i];
+        float bx, by, px, py;
+        physicalCoords(blocker, bx, by);
+        physicalCoords(park, px, py);
+        _steps.push({MAGNET_ON,  park,    0.0f, 0.0f});
+        _steps.push({MOVE_TO,    blocker, bx,   by});
+        _steps.push({MAGNET_OFF, blocker, 0.0f, 0.0f});
+    }
 
     bool ok = _game.applyMove(from, to);
     (void)ok;  // guaranteed by isLegalMove check above

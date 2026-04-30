@@ -137,6 +137,53 @@ void test_start_move_while_in_progress_returns_false() {
     TEST_ASSERT_FALSE(mp.startMove({'D', 2}, {'D', 4}));  // rejected while in progress
 }
 
+// ── Obstacle displacement ──────────────────────────────────────
+
+void test_rook_blocked_path_displaces_piece() {
+    // White rook at A1, white pawn at A3 (blocker), moving rook to A5
+    Piece board[8][8] = {};
+    board[0][0] = {ROOK, WHITE};   // A1
+    board[2][0] = {PAWN, WHITE};   // A3 — blocker on vertical leg
+    ChessGame g(board);
+    PhysicalConfig cfg = {3.8f, 5.5f, 5.0f, 5.0f};
+    MovePlanner mp(g, cfg);
+    TEST_ASSERT_TRUE(mp.startMove({'A', 1}, {'A', 5}));
+    // Sequence: park A3 (3 steps) + main move (3 steps: MAGNET_ON+MOVE_TO+MAGNET_OFF) + restore A3 (3 steps) = 9
+    int count = 0;
+    while (!mp.isMoveDone()) { mp.nextStep(); count++; }
+    TEST_ASSERT_EQUAL(9, count);
+}
+
+void test_displacement_first_step_is_magnet_on_blocker() {
+    // White rook at A1, white pawn at A3, moving rook to A5
+    Piece board[8][8] = {};
+    board[0][0] = {ROOK, WHITE};
+    board[2][0] = {PAWN, WHITE};
+    ChessGame g(board);
+    PhysicalConfig cfg = {3.8f, 5.5f, 5.0f, 5.0f};
+    MovePlanner mp(g, cfg);
+    mp.startMove({'A', 1}, {'A', 5});
+    Step s = mp.peekNextStep();
+    TEST_ASSERT_EQUAL(MAGNET_ON, s.type);
+    // target should be the blocker position A3
+    TEST_ASSERT_EQUAL('A', s.target.col);
+    TEST_ASSERT_EQUAL(3,   s.target.row);
+}
+
+void test_no_displacement_when_path_clear() {
+    // White rook at A1, moving to A5 with no pieces in between
+    Piece board[8][8] = {};
+    board[0][0] = {ROOK, WHITE};
+    ChessGame g(board);
+    PhysicalConfig cfg = {3.8f, 5.5f, 5.0f, 5.0f};
+    MovePlanner mp(g, cfg);
+    TEST_ASSERT_TRUE(mp.startMove({'A', 1}, {'A', 5}));
+    // 3 steps: MAGNET_ON + MOVE_TO + MAGNET_OFF (vertical only)
+    int count = 0;
+    while (!mp.isMoveDone()) { mp.nextStep(); count++; }
+    TEST_ASSERT_EQUAL(3, count);
+}
+
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_coord_a1);
@@ -149,5 +196,8 @@ int main() {
     RUN_TEST(test_simple_move_updates_game_state);
     RUN_TEST(test_start_move_illegal_returns_false);
     RUN_TEST(test_start_move_while_in_progress_returns_false);
+    RUN_TEST(test_rook_blocked_path_displaces_piece);
+    RUN_TEST(test_displacement_first_step_is_magnet_on_blocker);
+    RUN_TEST(test_no_displacement_when_path_clear);
     return UNITY_END();
 }

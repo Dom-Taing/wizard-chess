@@ -22,4 +22,6 @@ private:
     ChessGame&     _game;
     PhysicalConfig _cfg;
     std::queue<Step> _steps;
+
+    bool findParkSquare(Position blocker, Position mainFrom, Position mainTo, Position& park) const;
 };
