@@ -10,8 +10,14 @@ StepperMotor motorB(D9, D8, D7);
 CoreXY xy(motorA, motorB);
 Electromagnet magnet(D2);
 
+// A1 = (3.8, 5.5); each letter = +5.0 cm X, each number = +5.0 cm Y
+static constexpr float SQUARE_ORIGIN_X = 3.8f;
+static constexpr float SQUARE_ORIGIN_Y = 5.5f;
+static constexpr float SQUARE_STEP_X   = 5.0f;
+static constexpr float SQUARE_STEP_Y   = 5.0f;
+
 ChessGame   game;
-MovePlanner planner(game, {3.8f, 5.5f, 5.0f, 5.0f});
+MovePlanner planner(game, {SQUARE_ORIGIN_X, SQUARE_ORIGIN_Y, SQUARE_STEP_X, SQUARE_STEP_Y});
 
 void setup() {
     Serial.begin(115200);
@@ -26,12 +32,6 @@ void setup() {
 
     Serial.println("[CoreXY] Ready. Enter a square (e.g. A1, H8), ON, or OFF");
 }
-
-// A1 = (3.8, 5.0); each letter = +2.0 cm X, each number = +5.0 cm Y
-static constexpr float SQUARE_ORIGIN_X = 3.8f;
-static constexpr float SQUARE_ORIGIN_Y = 5.5f;
-static constexpr float SQUARE_STEP_X   = 5.0f;
-static constexpr float SQUARE_STEP_Y   = 5.0f;
 
 void loop() {
     if (!Serial.available()) return;
