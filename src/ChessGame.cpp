@@ -84,10 +84,41 @@ bool ChessGame::isPawnMove(Position from, Position to) const {
     return false;
 }
 
+bool ChessGame::isPathClear(Position from, Position to) const {
+    int dc = ci(to) - ci(from);
+    int dr = ri(to) - ri(from);
+    int stepC = (dc == 0) ? 0 : (dc > 0 ? 1 : -1);
+    int stepR = (dr == 0) ? 0 : (dr > 0 ? 1 : -1);
+    int c = ci(from) + stepC;
+    int r = ri(from) + stepR;
+    while (c != ci(to) || r != ri(to)) {
+        if (_board[r][c].type != NONE) return false;
+        c += stepC;
+        r += stepR;
+    }
+    return true;
+}
+
+bool ChessGame::isRookMove(Position from, Position to) const {
+    int dc = ci(to) - ci(from);
+    int dr = ri(to) - ri(from);
+    if (dc != 0 && dr != 0) return false;
+    return isPathClear(from, to);
+}
+
+bool ChessGame::isBishopMove(Position from, Position to) const {
+    int dc = ci(to) - ci(from);
+    int dr = ri(to) - ri(from);
+    if (dc < 0) dc = -dc;
+    if (dr < 0) dr = -dr;
+    if (dc != dr) return false;
+    return isPathClear(from, to);
+}
+
+bool ChessGame::isQueenMove(Position from, Position to) const {
+    return isRookMove(from, to) || isBishopMove(from, to);
+}
+
 bool ChessGame::applyMove(Position, Position)         { return false; }
-bool ChessGame::isRookMove  (Position, Position) const { return false; }
 bool ChessGame::isKnightMove(Position, Position) const { return false; }
-bool ChessGame::isBishopMove(Position, Position) const { return false; }
-bool ChessGame::isQueenMove (Position, Position) const { return false; }
 bool ChessGame::isKingMove  (Position, Position) const { return false; }
-bool ChessGame::isPathClear (Position, Position) const { return false; }

@@ -116,6 +116,67 @@ void test_pawn_diagonal_capture_right() {
     TEST_ASSERT_TRUE(g.isLegalMove({'E', 4}, {'F', 5}));
 }
 
+// ── Rook ───────────────────────────────────────────────────────
+void test_rook_horizontal_clear() {
+    Piece board[8][8] = {};
+    board[2][0] = {ROOK, WHITE};   // A3
+    ChessGame g(board);
+    TEST_ASSERT_TRUE(g.isLegalMove({'A', 3}, {'E', 3}));
+}
+
+void test_rook_blocked_by_friendly() {
+    Piece board[8][8] = {};
+    board[2][0] = {ROOK,  WHITE};  // A3
+    board[2][2] = {PAWN,  WHITE};  // C3 — friendly blocker
+    ChessGame g(board);
+    TEST_ASSERT_FALSE(g.isLegalMove({'A', 3}, {'E', 3}));
+}
+
+void test_rook_cannot_move_diagonal() {
+    Piece board[8][8] = {};
+    board[0][0] = {ROOK, WHITE};   // A1
+    ChessGame g(board);
+    TEST_ASSERT_FALSE(g.isLegalMove({'A', 1}, {'D', 4}));
+}
+
+// ── Bishop ─────────────────────────────────────────────────────
+void test_bishop_diagonal_clear() {
+    Piece board[8][8] = {};
+    board[0][2] = {BISHOP, WHITE};  // C1
+    ChessGame g(board);
+    TEST_ASSERT_TRUE(g.isLegalMove({'C', 1}, {'F', 4}));
+}
+
+void test_bishop_blocked() {
+    Piece board[8][8] = {};
+    board[0][2] = {BISHOP, WHITE};  // C1
+    board[1][3] = {PAWN,   WHITE};  // D2 — blocker
+    ChessGame g(board);
+    TEST_ASSERT_FALSE(g.isLegalMove({'C', 1}, {'F', 4}));
+}
+
+void test_bishop_cannot_move_straight() {
+    Piece board[8][8] = {};
+    board[0][2] = {BISHOP, WHITE};  // C1
+    ChessGame g(board);
+    TEST_ASSERT_FALSE(g.isLegalMove({'C', 1}, {'C', 4}));
+}
+
+// ── Queen ──────────────────────────────────────────────────────
+void test_queen_straight_clear() {
+    Piece board[8][8] = {};
+    board[0][3] = {QUEEN, WHITE};   // D1
+    ChessGame g(board);
+    TEST_ASSERT_TRUE(g.isLegalMove({'D', 1}, {'D', 5}));
+}
+
+void test_queen_diagonal_clear() {
+    Piece board[8][8] = {};
+    board[0][3] = {QUEEN, WHITE};   // D1
+    ChessGame g(board);
+    TEST_ASSERT_TRUE(g.isLegalMove({'D', 1}, {'G', 4}));
+}
+
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_standard_white_pawn_row2);
@@ -133,5 +194,13 @@ int main() {
     RUN_TEST(test_pawn_cannot_capture_forward);
     RUN_TEST(test_pawn_forward_two_blocked_at_destination);
     RUN_TEST(test_pawn_diagonal_capture_right);
+    RUN_TEST(test_rook_horizontal_clear);
+    RUN_TEST(test_rook_blocked_by_friendly);
+    RUN_TEST(test_rook_cannot_move_diagonal);
+    RUN_TEST(test_bishop_diagonal_clear);
+    RUN_TEST(test_bishop_blocked);
+    RUN_TEST(test_bishop_cannot_move_straight);
+    RUN_TEST(test_queen_straight_clear);
+    RUN_TEST(test_queen_diagonal_clear);
     return UNITY_END();
 }
