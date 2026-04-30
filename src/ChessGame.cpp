@@ -43,9 +43,48 @@ bool ChessGame::isEmpty(Position p) const {
 const std::vector<Piece>& ChessGame::getCaptured() const { return _captured; }
 
 // Stubs — will be filled in Tasks 3–6
-bool ChessGame::isLegalMove(Position, Position) const { return false; }
+bool ChessGame::isLegalMove(Position from, Position to) const {
+    if (from.col < 'A' || from.col > 'H' || from.row < 1 || from.row > 8) return false;
+    if (to.col   < 'A' || to.col   > 'H' || to.row   < 1 || to.row   > 8) return false;
+    if (from == to) return false;
+    const Piece& mover = at(from);
+    if (mover.type == NONE)           return false;
+    if (mover.color != _turn)         return false;
+    if (!isEmpty(to) && at(to).color == mover.color) return false;
+    switch (mover.type) {
+        case PAWN:   return isPawnMove(from, to);
+        case ROOK:   return isRookMove(from, to);
+        case KNIGHT: return isKnightMove(from, to);
+        case BISHOP: return isBishopMove(from, to);
+        case QUEEN:  return isQueenMove(from, to);
+        case KING:   return isKingMove(from, to);
+        default:     return false;
+    }
+}
+
+bool ChessGame::isPawnMove(Position from, Position to) const {
+    int dc  = ci(to) - ci(from);
+    int dr  = ri(to) - ri(from);
+    int dir = (at(from).color == WHITE) ? 1 : -1;
+    int startRi = (at(from).color == WHITE) ? 1 : 6;
+
+    // Forward 1 — destination must be empty
+    if (dc == 0 && dr == dir && isEmpty(to)) return true;
+
+    // Forward 2 from starting rank — both squares must be empty
+    if (dc == 0 && dr == 2 * dir && ri(from) == startRi) {
+        Position mid = {from.col, from.row + dir};
+        return isEmpty(mid) && isEmpty(to);
+    }
+
+    // Diagonal capture — must be an enemy piece at destination
+    if ((dc == 1 || dc == -1) && dr == dir && !isEmpty(to))
+        return true;  // friendly-fire already blocked in isLegalMove
+
+    return false;
+}
+
 bool ChessGame::applyMove(Position, Position)         { return false; }
-bool ChessGame::isPawnMove  (Position, Position) const { return false; }
 bool ChessGame::isRookMove  (Position, Position) const { return false; }
 bool ChessGame::isKnightMove(Position, Position) const { return false; }
 bool ChessGame::isBishopMove(Position, Position) const { return false; }
