@@ -234,39 +234,35 @@ void test_capture_second_step_moves_to_border() {
 }
 
 void test_second_capture_uses_next_border_slot() {
-    // Two separate captures use sequential border slots
+    // White rook at A1, black pawns at A4 and A8, black pawn at D7 (for black's turn)
     Piece board[8][8] = {};
-    board[3][4] = {PAWN, WHITE};  // E4
-    board[4][3] = {PAWN, BLACK};  // D5
-    board[4][5] = {PAWN, BLACK};  // F5
+    board[0][0] = {ROOK, WHITE};  // A1
+    board[3][0] = {PAWN, BLACK};  // A4 — first capture target
+    board[7][0] = {PAWN, BLACK};  // A8 — second capture target
+    board[6][3] = {PAWN, BLACK};  // D7 — black's move piece between captures
     ChessGame g(board);
     PhysicalConfig cfg = {3.8f, 5.5f, 5.0f, 5.0f};
     MovePlanner mp(g, cfg);
 
-    // First capture: E4xD5
-    mp.startMove({'E', 4}, {'D', 5});
+    // First capture: white rook A1 x A4 → border slot 0
+    TEST_ASSERT_TRUE(mp.startMove({'A', 1}, {'A', 4}));
     while (!mp.isMoveDone()) mp.nextStep();
 
-    // Now it's black's turn — skip by doing a dummy reset approach:
-    // Instead, use a fresh board to test slot 2 independently
-    // Second capture: use a new planner on same game — but game state has changed
-    // Just verify that the second startMove (after first completes) uses slot index 1
-    // by checking MOVE_TO y is still 45.5 but x is now originX + 1*stepX = 8.8
-    // We need black to move — black pawn at F5 forward (no capture). Use different board.
-    Piece board2[8][8] = {};
-    board2[3][4] = {PAWN, WHITE};  // E4
-    board2[4][3] = {PAWN, BLACK};  // D5
-    ChessGame g2(board2);
-    MovePlanner mp2(g2, cfg);
-    mp2.startMove({'E', 4}, {'D', 5});
-    while (!mp2.isMoveDone()) mp2.nextStep();
-    // g2 is now BLACK's turn; add another capture scenario
-    // For simplicity, just verify the first capture planner used slot 0
-    // and test that a second planner instance starts fresh at slot 0
-    MovePlanner mp3(g, cfg);
-    // g already had a capture — but mp3 is a new planner with fresh slots
-    // E4 is empty now; this test just verifies slot independence between planner instances
-    TEST_ASSERT_TRUE(mp3.isMoveDone());  // nothing started yet
+    // Black's turn: D7 → D6
+    TEST_ASSERT_TRUE(mp.startMove({'D', 7}, {'D', 6}));
+    while (!mp.isMoveDone()) mp.nextStep();
+
+    // Second capture: white rook A4 x A8 → border slot 1 (col B above rank 8)
+    TEST_ASSERT_TRUE(mp.startMove({'A', 4}, {'A', 8}));
+    mp.nextStep();  // consume MAGNET_ON at A8
+    Step s = mp.peekNextStep();
+    TEST_ASSERT_EQUAL(MOVE_TO, s.type);
+    // Slot 1: above rank 8, col B → x = originX + 1*stepX, y = originY + 8*stepY
+    float expectedX = 3.8f + 1 * 5.0f;  // 8.8
+    float expectedY = 5.5f + 8 * 5.0f;  // 45.5
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, expectedX, s.x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, expectedY, s.y);
+    while (!mp.isMoveDone()) mp.nextStep();
 }
 
 int main() {
