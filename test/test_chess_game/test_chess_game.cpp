@@ -100,6 +100,22 @@ void test_pawn_cannot_capture_forward() {
     TEST_ASSERT_FALSE(g.isLegalMove({'E', 2}, {'E', 3}));
 }
 
+void test_pawn_forward_two_blocked_at_destination() {
+    Piece board[8][8] = {};
+    board[1][4] = {PAWN, WHITE};   // E2
+    board[3][4] = {PAWN, BLACK};   // E4 — enemy at destination
+    ChessGame g(board);
+    TEST_ASSERT_FALSE(g.isLegalMove({'E', 2}, {'E', 4}));
+}
+
+void test_pawn_diagonal_capture_right() {
+    Piece board[8][8] = {};
+    board[3][4] = {PAWN, WHITE};   // E4
+    board[4][5] = {PAWN, BLACK};   // F5 — enemy (dc=+1)
+    ChessGame g(board);
+    TEST_ASSERT_TRUE(g.isLegalMove({'E', 4}, {'F', 5}));
+}
+
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_standard_white_pawn_row2);
@@ -115,5 +131,7 @@ int main() {
     RUN_TEST(test_pawn_diagonal_capture_legal);
     RUN_TEST(test_pawn_diagonal_no_capture_illegal);
     RUN_TEST(test_pawn_cannot_capture_forward);
+    RUN_TEST(test_pawn_forward_two_blocked_at_destination);
+    RUN_TEST(test_pawn_diagonal_capture_right);
     return UNITY_END();
 }
