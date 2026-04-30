@@ -2,11 +2,16 @@
 #include "StepperMotor.h"
 #include "CoreXY.h"
 #include "Electromagnet.h"
+#include "ChessGame.h"
+#include "MovePlanner.h"
 
 StepperMotor motorA(D4, D5, D6);
 StepperMotor motorB(D9, D8, D7);
 CoreXY xy(motorA, motorB);
 Electromagnet magnet(D2);
+
+ChessGame   game;
+MovePlanner planner(game, {3.8f, 5.5f, 5.0f, 5.0f});
 
 void setup() {
     Serial.begin(115200);
@@ -68,3 +73,14 @@ void loop() {
                   xy.getX() / CoreXY::STEPS_PER_CM,
                   xy.getY() / CoreXY::STEPS_PER_CM);
 }
+
+// Example move execution (adapt input source to your UI):
+// if (planner.startMove({'E', 2}, {'E', 4})) {
+//     while (!planner.isMoveDone()) {
+//         Step s = planner.peekNextStep();
+//         planner.nextStep();
+//         if      (s.type == MOVE_TO)     xy.moveToCm(s.x, s.y);
+//         else if (s.type == MAGNET_ON)   magnet.on();
+//         else if (s.type == MAGNET_OFF)  magnet.off();
+//     }
+// }
