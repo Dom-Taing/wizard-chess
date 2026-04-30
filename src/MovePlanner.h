@@ -12,6 +12,7 @@ public:
     // Returns true if more steps remain after advancing.
     bool nextStep();
     bool isMoveDone() const;
+    // Precondition: !isMoveDone(). Returns a zero-initialised Step if queue is empty.
     Step peekNextStep() const;
 
     // Public for testing — converts a chess Position to physical cm coordinates

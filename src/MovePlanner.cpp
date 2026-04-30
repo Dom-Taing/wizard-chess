@@ -10,7 +10,7 @@ void MovePlanner::physicalCoords(Position pos, float& x, float& y) const {
 
 bool MovePlanner::startMove(Position from, Position to) {
     if (!_game.isLegalMove(from, to)) return false;
-    _steps = std::queue<Step>();
+    if (!_steps.empty()) return false;  // reject if a move is already in progress
 
     float fx, fy, tx, ty;
     physicalCoords(from, fx, fy);
@@ -19,8 +19,8 @@ bool MovePlanner::startMove(Position from, Position to) {
     int dc = (int)(to.col - from.col);
     int dr = (int)(to.row - from.row);
 
-    // MAGNET_ON at source
-    _steps.push({MAGNET_ON, from, fx, fy});
+    // x/y are 0 for MAGNET steps per Step struct contract; position is in target field
+    _steps.push({MAGNET_ON,  from, 0.0f, 0.0f});
 
     // Horizontal leg (if needed)
     if (dc != 0) _steps.push({MOVE_TO, from, tx, fy});
@@ -28,10 +28,10 @@ bool MovePlanner::startMove(Position from, Position to) {
     // Vertical leg (if needed)
     if (dr != 0) _steps.push({MOVE_TO, to, tx, ty});
 
-    // MAGNET_OFF at destination
-    _steps.push({MAGNET_OFF, to, tx, ty});
+    _steps.push({MAGNET_OFF, to, 0.0f, 0.0f});
 
-    _game.applyMove(from, to);
+    bool ok = _game.applyMove(from, to);
+    (void)ok;  // guaranteed by isLegalMove check above
     return true;
 }
 

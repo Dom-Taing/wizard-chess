@@ -64,17 +64,14 @@ void test_simple_move_sequence_e2e4() {
     MovePlanner mp(g, cfg);
     mp.startMove({'E', 2}, {'E', 4});
 
-    float expX, expY;
-    float srcX = 3.8f + 4*5.0f;  // E column
-    float srcY = 5.5f + 1*5.0f;  // rank 2
     float dstX = 3.8f + 4*5.0f;  // E column
     float dstY = 5.5f + 3*5.0f;  // rank 4
 
-    // Step 1: MAGNET_ON at E2 — x/y must be source physical coords
+    // Step 1: MAGNET_ON at E2 — x/y are 0 per Step struct contract; position in target
     Step s = mp.peekNextStep();
     TEST_ASSERT_EQUAL(MAGNET_ON, s.type);
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, srcX, s.x);
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, srcY, s.y);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, s.x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, s.y);
     mp.nextStep();
 
     // Step 2: MOVE_TO E4 (vertical only — dc==0, same column)
@@ -84,11 +81,11 @@ void test_simple_move_sequence_e2e4() {
     TEST_ASSERT_FLOAT_WITHIN(0.001f, dstY, s.y);
     mp.nextStep();
 
-    // Step 3: MAGNET_OFF at E4 — x/y must be destination physical coords
+    // Step 3: MAGNET_OFF at E4 — x/y are 0 per Step struct contract; position in target
     s = mp.peekNextStep();
     TEST_ASSERT_EQUAL(MAGNET_OFF, s.type);
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, dstX, s.x);
-    TEST_ASSERT_FLOAT_WITHIN(0.001f, dstY, s.y);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, s.x);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, s.y);
     mp.nextStep();
 
     TEST_ASSERT_TRUE(mp.isMoveDone());
@@ -132,6 +129,14 @@ void test_start_move_illegal_returns_false() {
     TEST_ASSERT_TRUE(mp.isMoveDone());                    // queue stays empty
 }
 
+void test_start_move_while_in_progress_returns_false() {
+    ChessGame g;
+    PhysicalConfig cfg = {3.8f, 5.5f, 5.0f, 5.0f};
+    MovePlanner mp(g, cfg);
+    TEST_ASSERT_TRUE(mp.startMove({'E', 2}, {'E', 4}));   // first move starts
+    TEST_ASSERT_FALSE(mp.startMove({'D', 2}, {'D', 4}));  // rejected while in progress
+}
+
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_coord_a1);
@@ -143,5 +148,6 @@ int main() {
     RUN_TEST(test_simple_move_diagonal_two_legs);
     RUN_TEST(test_simple_move_updates_game_state);
     RUN_TEST(test_start_move_illegal_returns_false);
+    RUN_TEST(test_start_move_while_in_progress_returns_false);
     return UNITY_END();
 }
