@@ -3,7 +3,35 @@
 #include <algorithm>
 
 MovePlanner::MovePlanner(ChessGame& game, const PhysicalConfig& config)
-    : _game(game), _cfg(config) {}
+    : _game(game), _cfg(config) {
+    initBorderSlots();
+}
+
+void MovePlanner::initBorderSlots() {
+    _borderSlots.clear();
+    _borderOccupied.clear();
+    // 8 slots above rank 8
+    float yAbove = _cfg.originY + 8 * _cfg.stepY;
+    for (int c = 0; c < 8; c++) {
+        float x = _cfg.originX + c * _cfg.stepX;
+        _borderSlots.push_back({x, yAbove});
+        _borderOccupied.push_back(false);
+    }
+    // 8 slots below rank 1
+    float yBelow = _cfg.originY - _cfg.stepY;
+    for (int c = 0; c < 8; c++) {
+        float x = _cfg.originX + c * _cfg.stepX;
+        _borderSlots.push_back({x, yBelow});
+        _borderOccupied.push_back(false);
+    }
+}
+
+int MovePlanner::nextFreeBorderSlot() const {
+    for (int i = 0; i < (int)_borderSlots.size(); i++) {
+        if (!_borderOccupied[i]) return i;
+    }
+    return -1;
+}
 
 void MovePlanner::physicalCoords(Position pos, float& x, float& y) const {
     x = _cfg.originX + (pos.col - 'A') * _cfg.stepX;
@@ -46,6 +74,20 @@ bool MovePlanner::startMove(Position from, Position to) {
     int dr = (int)(to.row - from.row);
     int stepC = (dc == 0) ? 0 : (dc > 0 ? 1 : -1);
     int stepR = (dr == 0) ? 0 : (dr > 0 ? 1 : -1);
+
+    // Handle capture: park the enemy piece at a border slot before anything else
+    bool isCapture = !_game.isEmpty(to);
+    int borderIdx = -1;
+    if (isCapture) {
+        borderIdx = nextFreeBorderSlot();
+        if (borderIdx < 0) {
+            return false;  // no border slots free (shouldn't happen in a normal game)
+        }
+        auto [bx, by] = _borderSlots[borderIdx];
+        _steps.push({MAGNET_ON,  to,       0.0f, 0.0f});
+        _steps.push({MOVE_TO,    to,       bx,   by});
+        _steps.push({MAGNET_OFF, {'Z', 0}, 0.0f, 0.0f});
+    }
 
     // Collect blockers with their park squares
     std::vector<std::pair<Position, Position>> displacements;
@@ -107,6 +149,7 @@ bool MovePlanner::startMove(Position from, Position to) {
 
     bool ok = _game.applyMove(from, to);
     (void)ok;  // guaranteed by isLegalMove check above
+    if (isCapture) _borderOccupied[borderIdx] = true;
     return true;
 }
 

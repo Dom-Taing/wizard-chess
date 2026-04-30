@@ -2,6 +2,8 @@
 #include "ChessTypes.h"
 #include "ChessGame.h"
 #include <queue>
+#include <vector>
+#include <utility>
 
 class MovePlanner {
 public:
@@ -23,5 +25,10 @@ private:
     PhysicalConfig _cfg;
     std::queue<Step> _steps;
 
+    std::vector<std::pair<float,float>> _borderSlots;
+    std::vector<bool>                   _borderOccupied;
+
     bool findParkSquare(Position blocker, Position mainFrom, Position mainTo, Position& park) const;
+    void initBorderSlots();
+    int  nextFreeBorderSlot() const;  // returns index of first free slot, or -1
 };
