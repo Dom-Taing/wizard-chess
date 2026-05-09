@@ -5,6 +5,8 @@
 #include <vector>
 #include <utility>
 
+struct PhysBoard;  // implementation detail, defined in MovePlanner.cpp
+
 class MovePlanner {
 public:
     MovePlanner(ChessGame& game, const PhysicalConfig& config);
@@ -28,7 +30,12 @@ private:
     std::vector<std::pair<float,float>> _borderSlots;
     std::vector<bool>                   _borderOccupied;
 
-    bool findParkSquare(Position blocker, Position mainFrom, Position mainTo, Position& park) const;
     void initBorderSlots();
     int  nextFreeBorderSlot() const;  // returns index of first free slot, or -1
+
+    // Plans an axis-aligned magnet-on segment that moves the piece at `from` to `to`,
+    // recursively parking and restoring blockers. Updates `phys` to reflect the
+    // post-segment state. Returns false if no plan exists within the recursion limit.
+    bool planSegment(PhysBoard& phys, Position from, Position to,
+                     int depth, std::vector<Step>& out) const;
 };

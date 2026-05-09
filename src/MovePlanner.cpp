@@ -1,7 +1,145 @@
 #include "MovePlanner.h"
 #include <vector>
+#include <queue>
+#include <deque>
 #include <algorithm>
 #include <cassert>
+
+// Mirror of the chess game's piece layout that the planner can mutate during
+// planning without touching the real game state.
+struct PhysBoard {
+    Piece cells[8][8] = {};
+
+    static int ri(Position p) { return p.row - 1; }
+    static int ci(Position p) { return p.col - 'A'; }
+
+    bool isEmpty(Position p) const { return cells[ri(p)][ci(p)].type == NONE; }
+    void clear(Position p)         { cells[ri(p)][ci(p)] = {}; }
+    void move(Position from, Position to) {
+        cells[ri(to)][ci(to)]     = cells[ri(from)][ci(from)];
+        cells[ri(from)][ci(from)] = {};
+    }
+};
+
+namespace {
+
+constexpr int MAX_DEPTH = 3;
+
+// Dijkstra on the 8x8 grid (4-connected). Cost to enter a cell is 1 if empty
+// (or the destination) and 1 + BLOCKER_PENALTY if occupied. The penalty is
+// large enough that minimizing total cost minimizes blockers first and path
+// length second — so among same-blocker paths we pick the shortest. `from`
+// itself is the starting node and is not counted.
+std::vector<Position> findPath(const PhysBoard& phys, Position from, Position to) {
+    constexpr int BLOCKER_PENALTY = 1000;
+    constexpr int INF = 1 << 20;
+    int  dist[8][8];
+    Position parent[8][8];
+    bool visited[8][8] = {};
+    for (int r = 0; r < 8; r++)
+        for (int c = 0; c < 8; c++) dist[r][c] = INF;
+
+    auto ri = [](Position p) { return p.row - 1; };
+    auto ci = [](Position p) { return p.col - 'A'; };
+
+    using Node = std::pair<int, Position>;
+    struct Cmp { bool operator()(const Node& a, const Node& b) const { return a.first > b.first; } };
+    std::priority_queue<Node, std::vector<Node>, Cmp> pq;
+
+    dist[ri(from)][ci(from)]   = 0;
+    parent[ri(from)][ci(from)] = from;
+    pq.push({0, from});
+
+    const int drs[] = {1, -1, 0, 0};
+    const int dcs[] = {0, 0, -1, 1};
+
+    while (!pq.empty()) {
+        Position u = pq.top().second; pq.pop();
+        if (visited[ri(u)][ci(u)]) continue;
+        visited[ri(u)][ci(u)] = true;
+        if (u == to) break;
+
+        for (int i = 0; i < 4; i++) {
+            Position v = {(char)(u.col + dcs[i]), u.row + drs[i]};
+            if (v.col < 'A' || v.col > 'H' || v.row < 1 || v.row > 8) continue;
+            if (visited[ri(v)][ci(v)]) continue;
+            int w  = 1 + ((phys.isEmpty(v) || v == to) ? 0 : BLOCKER_PENALTY);
+            int nd = dist[ri(u)][ci(u)] + w;
+            if (nd < dist[ri(v)][ci(v)]) {
+                dist[ri(v)][ci(v)]   = nd;
+                parent[ri(v)][ci(v)] = u;
+                pq.push({nd, v});
+            }
+        }
+    }
+
+    if (dist[ri(to)][ci(to)] == INF) return {};
+
+    std::vector<Position> path;
+    Position cur = to;
+    while (!(cur == from)) {
+        path.push_back(cur);
+        cur = parent[ri(cur)][ci(cur)];
+    }
+    path.push_back(from);
+    std::reverse(path.begin(), path.end());
+    return path;
+}
+
+// BFS for the nearest empty square, ignoring any cells listed in `forbidden`.
+// Expands through occupied cells so a piece walled in by neighbors can still
+// reach an open bay further out.
+bool findPark(const PhysBoard& phys, Position blocker,
+              const std::vector<Position>& forbidden, Position& park) {
+    bool seen[8][8] = {};
+    seen[blocker.row - 1][blocker.col - 'A'] = true;
+    std::queue<Position> q;
+    q.push(blocker);
+
+    const int drs[] = {1, -1, 0, 0};
+    const int dcs[] = {0, 0, -1, 1};
+
+    while (!q.empty()) {
+        Position cur = q.front(); q.pop();
+        for (int i = 0; i < 4; i++) {
+            Position v = {(char)(cur.col + dcs[i]), cur.row + drs[i]};
+            if (v.col < 'A' || v.col > 'H' || v.row < 1 || v.row > 8) continue;
+            int rIdx = v.row - 1, cIdx = v.col - 'A';
+            if (seen[rIdx][cIdx]) continue;
+            seen[rIdx][cIdx] = true;
+            q.push(v);
+
+            if (!phys.isEmpty(v)) continue;
+            bool forb = false;
+            for (const Position& f : forbidden) if (f == v) { forb = true; break; }
+            if (forb) continue;
+
+            park = v;
+            return true;
+        }
+    }
+    return false;
+}
+
+// Reduce a cell-by-cell path to the gantry stops the motion controller needs:
+// only the endpoint of each axis-aligned run plus the final cell.
+std::vector<Position> waypoints(const std::vector<Position>& path) {
+    std::vector<Position> wp;
+    if (path.size() < 2) return wp;
+    for (size_t i = 1; i < path.size(); i++) {
+        if (i + 1 < path.size()) {
+            int dr1 = path[i].row     - path[i - 1].row;
+            int dc1 = path[i].col     - path[i - 1].col;
+            int dr2 = path[i + 1].row - path[i].row;
+            int dc2 = path[i + 1].col - path[i].col;
+            if (dr1 == dr2 && dc1 == dc2) continue;  // colinear, drop interior cell
+        }
+        wp.push_back(path[i]);
+    }
+    return wp;
+}
+
+}  // namespace
 
 MovePlanner::MovePlanner(ChessGame& game, const PhysicalConfig& config)
     : _game(game), _cfg(config) {
@@ -11,14 +149,12 @@ MovePlanner::MovePlanner(ChessGame& game, const PhysicalConfig& config)
 void MovePlanner::initBorderSlots() {
     _borderSlots.clear();
     _borderOccupied.clear();
-    // 8 slots above rank 8
     float yAbove = _cfg.originY + 8 * _cfg.stepY;
     for (int c = 0; c < 8; c++) {
         float x = _cfg.originX + c * _cfg.stepX;
         _borderSlots.push_back({x, yAbove});
         _borderOccupied.push_back(false);
     }
-    // 8 slots below rank 1
     float yBelow = _cfg.originY - _cfg.stepY;
     for (int c = 0; c < 8; c++) {
         float x = _cfg.originX + c * _cfg.stepX;
@@ -39,119 +175,101 @@ void MovePlanner::physicalCoords(Position pos, float& x, float& y) const {
     y = _cfg.originY + (pos.row - 1)  * _cfg.stepY;
 }
 
-bool MovePlanner::findParkSquare(Position blocker, Position mainFrom, Position mainTo, Position& park) const {
-    // Candidate directions: up, down, left, right
-    int drs[] = {1, -1, 0, 0};
-    int dcs[] = {0, 0, -1, 1};
-    for (int i = 0; i < 4; i++) {
-        Position candidate = {(char)(blocker.col + dcs[i]), blocker.row + drs[i]};
-        if (candidate.col < 'A' || candidate.col > 'H') continue;
-        if (candidate.row < 1  || candidate.row > 8)   continue;
-        if (!_game.isEmpty(candidate))                  continue;
-        bool onHorizLeg = (candidate.row == mainFrom.row &&
-                           candidate.col > std::min(mainFrom.col, mainTo.col) &&
-                           candidate.col < std::max(mainFrom.col, mainTo.col));
-        bool onVertLeg  = (candidate.col == mainTo.col &&
-                           candidate.row > std::min(mainFrom.row, mainTo.row) &&
-                           candidate.row < std::max(mainFrom.row, mainTo.row));
-        // Also exclude the L-corner pivot square (intersection of both legs)
-        bool isPivot = (candidate.col == mainTo.col && candidate.row == mainFrom.row);
-        if (onHorizLeg || onVertLeg || isPivot) continue;
-        park = candidate;
-        return true;
+bool MovePlanner::planSegment(PhysBoard& phys, Position from, Position to,
+                              int depth, std::vector<Step>& out) const {
+    if (depth > MAX_DEPTH) return false;
+    if (from == to)        return true;
+
+    auto path = findPath(phys, from, to);
+    if (path.empty()) return false;
+
+    // Cells we must clear: occupied path cells strictly between `from` and `to`.
+    std::vector<Position> blockers;
+    for (size_t i = 1; i + 1 < path.size(); i++) {
+        if (!phys.isEmpty(path[i])) blockers.push_back(path[i]);
     }
-    return false;
+
+    // Pick park squares for each blocker. Forbidden = all path cells + already
+    // chosen parks for this segment, so blockers don't pile up on each other
+    // and don't sit back down on our own path.
+    std::vector<Position> forbidden(path.begin(), path.end());
+    std::vector<Position> parks;
+    parks.reserve(blockers.size());
+    for (Position b : blockers) {
+        Position p;
+        if (!findPark(phys, b, forbidden, p)) return false;
+        parks.push_back(p);
+        forbidden.push_back(p);
+    }
+
+    // Park each blocker (each is its own recursive sub-segment).
+    for (size_t i = 0; i < blockers.size(); i++) {
+        if (!planSegment(phys, blockers[i], parks[i], depth + 1, out)) return false;
+    }
+
+    // Emit the main segment: position over `from`, magnet on, walk waypoints,
+    // magnet off at `to`.
+    float fx, fy;
+    physicalCoords(from, fx, fy);
+    out.push_back({MOVE_TO,   from, fx, fy});
+    out.push_back({MAGNET_ON, from, 0.0f, 0.0f});
+    for (Position wp : waypoints(path)) {
+        float x, y;
+        physicalCoords(wp, x, y);
+        out.push_back({MOVE_TO, wp, x, y});
+    }
+    out.push_back({MAGNET_OFF, to, 0.0f, 0.0f});
+
+    phys.move(from, to);
+
+    // Restore blockers in reverse order — later parks are unwound first so the
+    // physical board returns to its pre-segment state (with the moved piece
+    // now at `to`).
+    for (size_t i = blockers.size(); i-- > 0; ) {
+        if (!planSegment(phys, parks[i], blockers[i], depth + 1, out)) return false;
+    }
+
+    return true;
 }
 
 bool MovePlanner::startMove(Position from, Position to) {
     if (!_game.isLegalMove(from, to)) return false;
-    if (!_steps.empty()) return false;
+    if (!_steps.empty())              return false;
 
-    float fx, fy, tx, ty;
-    physicalCoords(from, fx, fy);
-    physicalCoords(to,   tx, ty);
+    PhysBoard phys;
+    for (int r = 1; r <= 8; r++) {
+        for (char c = 'A'; c <= 'H'; c++) {
+            phys.cells[r - 1][c - 'A'] = _game.getPieceAt({c, r});
+        }
+    }
 
-    int dc = (int)(to.col - from.col);
-    int dr = (int)(to.row - from.row);
-    int stepC = (dc == 0) ? 0 : (dc > 0 ? 1 : -1);
-    int stepR = (dr == 0) ? 0 : (dr > 0 ? 1 : -1);
+    std::vector<Step> plan;
 
-    // Handle capture: park the enemy piece at a border slot before anything else
-    bool isCapture = !_game.isEmpty(to);
-    int borderIdx = -1;
+    // Capture: lift the enemy piece off `to` and drop it in the next free
+    // border slot before planning the main move. (No on-board pathfinding for
+    // captures — we go straight off-board.)
+    bool isCapture = !phys.isEmpty(to);
+    int  borderIdx = -1;
     if (isCapture) {
         borderIdx = nextFreeBorderSlot();
-        if (borderIdx < 0) {
-            return false;  // no border slots free (shouldn't happen in a normal game)
-        }
+        if (borderIdx < 0) return false;
         auto [bx, by] = _borderSlots[borderIdx];
-        _steps.push({MAGNET_ON,  to,       0.0f, 0.0f});
-        _steps.push({MOVE_TO,    to,       bx,   by});
-        _steps.push({MAGNET_OFF, kNoSquare, 0.0f, 0.0f});
+        float tx, ty;
+        physicalCoords(to, tx, ty);
+        plan.push_back({MOVE_TO,    to,        tx,   ty});
+        plan.push_back({MAGNET_ON,  to,        0.0f, 0.0f});
+        plan.push_back({MOVE_TO,    kNoSquare, bx,   by});
+        plan.push_back({MAGNET_OFF, kNoSquare, 0.0f, 0.0f});
+        phys.clear(to);
     }
 
-    // Collect blockers with their park squares
-    std::vector<std::pair<Position, Position>> displacements;
-
-    // Horizontal leg blockers
-    if (dc != 0) {
-        for (int c = from.col + stepC; c != to.col; c += stepC) {
-            Position sq = {(char)c, from.row};
-            if (!_game.isEmpty(sq)) {
-                Position park;
-                if (!findParkSquare(sq, from, to, park)) {
-                    _steps = std::queue<Step>();
-                    return false;  // no room to park blocker — cannot plan move
-                }
-                displacements.push_back({sq, park});
-            }
-        }
+    if (!planSegment(phys, from, to, 0, plan)) {
+        return false;
     }
 
-    // Vertical leg blockers
-    if (dr != 0) {
-        for (int r = from.row + stepR; r != to.row; r += stepR) {
-            Position sq = {to.col, r};
-            if (!_game.isEmpty(sq)) {
-                Position park;
-                if (!findParkSquare(sq, from, to, park)) {
-                    _steps = std::queue<Step>();
-                    return false;  // no room to park blocker — cannot plan move
-                }
-                displacements.push_back({sq, park});
-            }
-        }
-    }
-
-    // Push park sub-sequences
-    for (auto& [blocker, park] : displacements) {
-        float px, py;
-        physicalCoords(park, px, py);
-        _steps.push({MAGNET_ON,  blocker, 0.0f, 0.0f});
-        _steps.push({MOVE_TO,    park,    px,   py});
-        _steps.push({MAGNET_OFF, park,    0.0f, 0.0f});
-    }
-
-    // Main move
-    _steps.push({MAGNET_ON, from, 0.0f, 0.0f});
-    if (dc != 0) _steps.push({MOVE_TO, from, tx, fy});
-    if (dr != 0) _steps.push({MOVE_TO, to,   tx, ty});
-    _steps.push({MAGNET_OFF, to, 0.0f, 0.0f});
-
-    // Restore sub-sequences (reverse order)
-    for (int i = (int)displacements.size() - 1; i >= 0; i--) {
-        auto& [blocker, park] = displacements[i];
-        float ox, oy;
-        physicalCoords(blocker, ox, oy);
-        _steps.push({MAGNET_ON,  park,    0.0f, 0.0f});
-        _steps.push({MOVE_TO,    blocker, ox,   oy});
-        _steps.push({MAGNET_OFF, blocker, 0.0f, 0.0f});
-    }
-
+    for (const Step& s : plan) _steps.push(s);
     bool ok = _game.applyMove(from, to);
-    assert(ok);  // guaranteed by isLegalMove check above; fails only on internal inconsistency
-    // Safe to mark here: the !_steps.empty() guard prevents a concurrent startMove from
-    // re-entering and observing a slot that is reserved but not yet marked occupied.
+    assert(ok);
     if (isCapture) _borderOccupied[borderIdx] = true;
     return true;
 }
